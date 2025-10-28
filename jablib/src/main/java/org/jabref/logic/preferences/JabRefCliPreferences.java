@@ -1991,16 +1991,34 @@ public class JabRefCliPreferences implements CliPreferences {
     }
 
     private FileHistory getFileHistory() {
+        Path currentDir = Path.of("").toAbsolutePath();
         return FileHistory.of(getStringList(RECENT_DATABASES).stream()
                                                              .map(Path::of)
+                                                             .map(path -> path.isAbsolute() ? path : currentDir.resolve(path))
                                                              .toList());
     }
 
     private void storeFileHistory(FileHistory history) {
-        putStringList(RECENT_DATABASES, history.stream()
-                                               .map(Path::toAbsolutePath)
-                                               .map(Path::toString)
-                                               .toList());
+        if (getBoolean(MEMORY_STICK_MODE)) {
+            Path currentDir = Path.of("").toAbsolutePath();
+            putStringList(RECENT_DATABASES, history.stream()
+                                                   .map(Path::toAbsolutePath)
+                                                   .map(path -> {
+                                                       try {
+                                                           return currentDir.relativize(path);
+                                                       } catch (IllegalArgumentException e) {
+                                                           // Can't relativize (e.g., different drives on Windows)
+                                                           return path;
+                                                       }
+                                                   })
+                                                   .map(Path::toString)
+                                                   .toList());
+        } else {
+            putStringList(RECENT_DATABASES, history.stream()
+                                                   .map(Path::toAbsolutePath)
+                                                   .map(Path::toString)
+                                                   .toList());
+        }
     }
 
     // endregion
